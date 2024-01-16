@@ -4,6 +4,7 @@
 import os
 from pkg_resources import packaging
 
+import intel_extension_for_pytorch as ipex
 import fire
 import random
 import torch
@@ -44,7 +45,7 @@ from llama_recipes.utils.train_utils import (
     print_model_size,
     get_policies
 )
-from accelerate.utils import is_xpu_available
+
 
 def main(**kwargs):
     # Update the configuration for the training and sharding process
@@ -52,12 +53,19 @@ def main(**kwargs):
     update_config((train_config, fsdp_config), **kwargs)
 
     # Set the seeds for reproducibility
-    if is_xpu_available():
-        torch.xpu.manual_seed(train_config.seed)
-    else:
-        torch.cuda.manual_seed(train_config.seed)
+    torch.xpu.manual_seed(train_config.seed)
     torch.manual_seed(train_config.seed)
     random.seed(train_config.seed)
+
+    # MPI launcher settings
+    if "PMI_RANK" in os.environ:
+        global_rank = os.environ["PMI_RANK"]
+        os.environ["RANK"] = os.environ["PMI_RANK"]
+        os.environ["LOCAL_RANK"] = os.environ["MPI_LOCALRANKID"]
+        os.environ["WORLD_SIZE"] = os.environ["PMI_SIZE"]
+
+    os.environ['CCL_LOCAL_RANK'] = str(os.environ.get('LOCAL_RANK', 2))
+    os.environ['CCL_LOCAL_SIZE'] = str(os.environ.get('WORLD_SIZE',0))
 
     if train_config.enable_fsdp:
         setup()
@@ -67,10 +75,7 @@ def main(**kwargs):
         world_size = int(os.environ["WORLD_SIZE"])
 
     if torch.distributed.is_initialized():
-        if is_xpu_available():
-            torch.xpu.set_device(local_rank)
-        else:
-            torch.cuda.set_device(local_rank)
+        torch.xpu.set_device(local_rank)
         clear_gpu_cache(local_rank)
         setup_environ_flags(rank)
 
@@ -85,9 +90,9 @@ def main(**kwargs):
         """
         v = packaging.version.parse(torch.__version__)
         verify_latest_nightly = v.is_devrelease and v.dev >= 20230701
-        if not verify_latest_nightly:
-            raise Exception("latest pytorch nightly build is required to run with low_cpu_fsdp config, "
-                            "please install latest nightly.")
+        # if not verify_latest_nightly:
+        #     raise Exception("latest pytorch nightly build is required to run with low_cpu_fsdp config, "
+        #                     "please install latest nightly.")
         if rank == 0:
             model = LlamaForCausalLM.from_pretrained(
                 train_config.model_name,
@@ -119,6 +124,19 @@ def main(**kwargs):
             model = BetterTransformer.transform(model)
         except ImportError:
             print("Module 'optimum' not found. Please install 'optimum' it before proceeding.")
+    print(train_config.use_customized_flash_atten)
+    if train_config.enable_fsdp and train_config.use_customized_flash_atten:
+        """
+        setting "use_customized_flash_atten" will enable Flash Attention bashed on XeTLA 
+        backends. It should be run with an IPEX which has FLash Attention enabled. This
+        is an experimental feature.
+        """
+        print("using flash atten code pass")
+        from transformers.models.llama.modeling_llama import LlamaAttention
+        from flash_att.llama_attention_monkeypatch import get_llama_attention_patch_fn
+
+        LlamaAttention.forward = get_llama_attention_patch_fn("ipex")
+        model.config.use_cache = False
 
     # Load the tokenizer and add special tokens
     tokenizer = LlamaTokenizer.from_pretrained(train_config.model_name)
@@ -154,19 +172,16 @@ def main(**kwargs):
             cpu_offload=CPUOffload(offload_params=True) if fsdp_config.fsdp_cpu_offload else None,
             mixed_precision=mixed_precision_policy if not fsdp_config.pure_bf16 else None,
             sharding_strategy=fsdp_config.sharding_strategy,
-            device_id=torch.xpu.current_device() if is_xpu_available() else torch.cuda.current_device(),
+            device_id=torch.device(f"xpu:{local_rank}"),
             limit_all_gathers=True,
             sync_module_states=train_config.low_cpu_fsdp,
-            param_init_fn=lambda module: module.to_empty(device=torch.device("cuda"), recurse=False)
+            param_init_fn=lambda module: module.to_empty(device=torch.device(f"xpu:{local_rank}"), recurse=False)
             if train_config.low_cpu_fsdp and rank != 0 else None,
         )
         if fsdp_config.fsdp_activation_checkpointing:
             apply_fsdp_checkpointing(model)
     elif not train_config.quantization and not train_config.enable_fsdp:
-        if is_xpu_available():
-            model.to("xpu:0")
-        else:
-            model.to("cuda")
+        model.to("xpu")
 
     dataset_config = generate_dataset_config(train_config, kwargs)
 
