@@ -130,7 +130,7 @@ def train(model, train_dataloader,eval_dataloader, tokenizer, optimizer, lr_sche
                             optimizer.zero_grad()
                             pbar.update(1)
 
-                    torch.xpu.synchronize()
+                    #torch.xpu.synchronize()
                     step_end_time = time.perf_counter()-step_start_time
                     steps_times.append(step_end_time)
 

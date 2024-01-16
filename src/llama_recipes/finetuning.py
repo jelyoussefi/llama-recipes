@@ -17,7 +17,7 @@ from torch.distributed.fsdp.fully_sharded_data_parallel import CPUOffload
 from torch.optim.lr_scheduler import StepLR
 from transformers import (
     LlamaForCausalLM,
-    LlamaTokenizer,
+    CodeLlamaTokenizer,
     LlamaConfig,
 )
 from transformers.models.llama.modeling_llama import LlamaDecoderLayer
@@ -139,7 +139,7 @@ def main(**kwargs):
         model.config.use_cache = False
 
     # Load the tokenizer and add special tokens
-    tokenizer = LlamaTokenizer.from_pretrained(train_config.model_name)
+    tokenizer = CodeLlamaTokenizer.from_pretrained(train_config.model_name)
     tokenizer.pad_token_id = tokenizer.eos_token_id
 
     print_model_size(model, train_config, rank if train_config.enable_fsdp else 0)
