@@ -113,12 +113,12 @@ def main(**kwargs):
 				model = LlamaForCausalLM(llama_config)
 
 	else:
-        llama_config = LlamaConfig.from_pretrained(train_config.model_name)
-        # reduce number of hidden layers
-        if train_config.use_fewer_layers:
-            llama_config.update({'num_hidden_layers': 2})
-         
-        llama_config.use_cache = use_cache
+		llama_config = LlamaConfig.from_pretrained(train_config.model_name)
+		# reduce number of hidden layers
+		if train_config.use_fewer_layers:
+			llama_config.update({'num_hidden_layers': 2})
+		 
+		llama_config.use_cache = use_cache
 
 		model = LlamaForCausalLM.from_pretrained(
 			train_config.model_name,
