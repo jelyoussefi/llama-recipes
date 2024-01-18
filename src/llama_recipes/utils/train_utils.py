@@ -394,7 +394,7 @@ def clear_gpu_cache(rank=None):
 	if rank == 0:
 		print(f"Clearing GPU cache for all ranks")
 	if is_xpu_available():
-		torch.xpu_empty_cache()
+		torch.xpu.empty_cache()
 	else:
 		torch.cuda.empty_cache()
 
