@@ -3,6 +3,7 @@
 
 import os
 from pkg_resources import packaging
+from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Type, Union
 
 import fire
 import random
@@ -112,11 +113,19 @@ def main(**kwargs):
 				model = LlamaForCausalLM(llama_config)
 
 	else:
+        llama_config = LlamaConfig.from_pretrained(train_config.model_name)
+        # reduce number of hidden layers
+        if train_config.use_fewer_layers:
+            llama_config.update({'num_hidden_layers': 2})
+         
+        llama_config.use_cache = use_cache
+
 		model = LlamaForCausalLM.from_pretrained(
 			train_config.model_name,
+			config = llama_config,
 			load_in_8bit=True if train_config.quantization else None,
 			device_map="auto" if train_config.quantization else None,
-			use_cache=use_cache,
+			token=True,
 		)
 	if train_config.enable_fsdp and train_config.use_fast_kernels:
 		"""
@@ -164,7 +173,7 @@ def main(**kwargs):
 			cpu_offload=CPUOffload(offload_params=True) if fsdp_config.fsdp_cpu_offload else None,
 			mixed_precision=mixed_precision_policy if not fsdp_config.pure_bf16 else None,
 			sharding_strategy=fsdp_config.sharding_strategy,
-			device_id=torch.xpu.current_device() if is_xpu_available() else torch.cuda.current_device(),
+			device_id=torch.device(f"xpu:{local_rank}") if is_xpu_available() else torch.cuda.current_device(),
 			limit_all_gathers=True,
 			sync_module_states=train_config.low_cpu_fsdp,
 			param_init_fn=lambda module: module.to_empty(device=torch.device(f"xpu:{local_rank}") if is_xpu_available() else torch.device("cuda"), recurse=False)
