@@ -46,7 +46,6 @@ from llama_recipes.utils.train_utils import (
 )
 
 from accelerate.utils import is_xpu_available
-import intel_extension_for_pytorch as ipex
 
 def main(**kwargs):
 	# Update the configuration for the training and sharding process
@@ -63,7 +62,7 @@ def main(**kwargs):
 
 	if is_xpu_available():
 		os.environ['CCL_LOCAL_RANK'] = str(os.environ.get('LOCAL_RANK', 2))
-		os.environ['CCL_LOCAL_SIZE'] = str(os.environ.get('WORLD_SIZE',0))
+		os.environ['CCL_LOCAL_SIZE'] = str(os.environ.get('WORLD_SIZE', 0))
 
 	if train_config.enable_fsdp:
 		setup()
