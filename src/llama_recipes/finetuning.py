@@ -46,6 +46,7 @@ from llama_recipes.utils.train_utils import (
 )
 
 from accelerate.utils import is_xpu_available
+import intel_extension_for_pytorch as ipex
 
 def main(**kwargs):
 	# Update the configuration for the training and sharding process

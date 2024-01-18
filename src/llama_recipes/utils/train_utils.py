@@ -12,6 +12,7 @@ from datetime import datetime
 
 import torch
 import torch.cuda.nccl as nccl
+import oneccl_bindings_for_pytorch
 import torch.distributed as dist
 from torch.distributed.fsdp import StateDictType
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
