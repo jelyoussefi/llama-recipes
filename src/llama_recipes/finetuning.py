@@ -53,6 +53,10 @@ def main(**kwargs):
 	train_config, fsdp_config = TRAIN_CONFIG(), FSDP_CONFIG()
 	update_config((train_config, fsdp_config), **kwargs)
 
+	print("-----------------------------------------")
+	print("\tDevice : ", "xpu" if is_xpu_available() else "cuda")
+	print("-----------------------------------------")
+
 	# Set the seeds for reproducibility
 	if is_xpu_available():
 		torch.xpu.manual_seed(train_config.seed)
@@ -163,7 +167,7 @@ def main(**kwargs):
 			device_id=torch.xpu.current_device() if is_xpu_available() else torch.cuda.current_device(),
 			limit_all_gathers=True,
 			sync_module_states=train_config.low_cpu_fsdp,
-            param_init_fn=lambda module: module.to_empty(device=torch.device(f"xpu:{local_rank}"), recurse=False)
+			param_init_fn=lambda module: module.to_empty(device=torch.device(f"xpu:{local_rank}") if is_xpu_available() else torch.device("cuda"), recurse=False)
 			if train_config.low_cpu_fsdp and rank != 0 else None,
 		)
 		if fsdp_config.fsdp_activation_checkpointing:
