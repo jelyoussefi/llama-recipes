@@ -16,7 +16,7 @@ class MemoryTrace:
         gc.collect()
         if is_xpu_available():
             torch.xpu.empty_cache()
-            torch.xpu.reset_max_memory_allocated()   # reset the peak gauge to zero
+            #torch.xpu.reset_max_memory_allocated()   # reset the peak gauge to zero
             self.begin = byte2gb(torch.xpu.memory_allocated())
         elif torch.cuda.is_available():
             torch.cuda.empty_cache()
