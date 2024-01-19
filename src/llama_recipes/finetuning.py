@@ -139,6 +139,19 @@ def main(**kwargs):
 		except ImportError:
 			print("Module 'optimum' not found. Please install 'optimum' it before proceeding.")
 
+ 	if train_config.enable_fsdp and train_config.use_customized_flash_atten:
+		"""
+		setting "use_customized_flash_atten" will enable Flash Attention bashed on XeTLA 
+		backends. It should be run with an IPEX which has FLash Attention enabled. This
+		is an experimental feature.
+		"""
+		print("using flash atten code pass")
+		from transformers.models.llama.modeling_llama import LlamaAttention
+		from flash_att.llama_attention_monkeypatch import get_llama_attention_patch_fn
+
+		LlamaAttention.forward = get_llama_attention_patch_fn("ipex")
+		model.config.use_cache = False
+
 	# Load the tokenizer and add special tokens
 	tokenizer = CodeLlamaTokenizer.from_pretrained(train_config.model_name)
 	tokenizer.pad_token_id = tokenizer.eos_token_id
@@ -183,7 +196,7 @@ def main(**kwargs):
 			apply_fsdp_checkpointing(model)
 	elif not train_config.quantization and not train_config.enable_fsdp:
 		if is_xpu_available():
-			model.to("xpu:0")
+			model.to("xpu")
 		else:
 			model.to("cuda")
 
