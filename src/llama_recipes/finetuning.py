@@ -5,7 +5,6 @@ import os
 from pkg_resources import packaging
 from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Type, Union
 
-import intel_extension_for_pytorch as ipex
 import fire
 import random
 import torch
@@ -47,22 +46,29 @@ from llama_recipes.utils.train_utils import (
 	get_policies
 )
 
-from torch.autograd.profiler import record_function
-fa_records: Dict[str, record_function] = {}
-
+from accelerate.utils import is_xpu_available
+import intel_extension_for_pytorch as ipex
 
 def main(**kwargs):
 	# Update the configuration for the training and sharding process
 	train_config, fsdp_config = TRAIN_CONFIG(), FSDP_CONFIG()
 	update_config((train_config, fsdp_config), **kwargs)
 
+	print("-----------------------------------------")
+	print("\tDevice : ", "xpu" if is_xpu_available() else "cuda")
+	print("-----------------------------------------")
+
 	# Set the seeds for reproducibility
-	torch.xpu.manual_seed(train_config.seed)
+	if is_xpu_available():
+		torch.xpu.manual_seed(train_config.seed)
+	else:
+		torch.cuda.manual_seed(train_config.seed)
 	torch.manual_seed(train_config.seed)
 	random.seed(train_config.seed)
 
-	os.environ['CCL_LOCAL_RANK'] = str(os.environ.get('LOCAL_RANK', 2))
-	os.environ['CCL_LOCAL_SIZE'] = str(os.environ.get('WORLD_SIZE',0))
+	if is_xpu_available():
+		os.environ['CCL_LOCAL_RANK'] = str(os.environ.get('LOCAL_RANK', 2))
+		os.environ['CCL_LOCAL_SIZE'] = str(os.environ.get('WORLD_SIZE',0))
 
 	if train_config.enable_fsdp:
 		setup()
