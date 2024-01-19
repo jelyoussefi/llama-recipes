@@ -96,7 +96,7 @@ def train(model, train_dataloader,eval_dataloader, tokenizer, optimizer, lr_sche
 				for key in batch.keys():
 					if train_config.enable_fsdp:
 						if is_xpu_available():
-							batch[key] = batch[key].to(torch.device(f"xpu:{local_rank}"))
+							batch[key] = batch[key].to(f"xpu:{local_rank}")
 						else:
 							batch[key] = batch[key].to(local_rank)
 					else:
@@ -147,7 +147,6 @@ def train(model, train_dataloader,eval_dataloader, tokenizer, optimizer, lr_sche
 				if train_config.save_metrics:
 					save_to_json(metrics_filename, train_step_loss, train_loss, train_step_perplexity, train_prep, val_step_loss, val_loss, val_step_perplexity, val_prep)
 
-				os.environ["PTI_ENABLE_COLLECTION"] = "0"
 			pbar.close()
 
 		epoch_end_time = time.perf_counter()-epoch_start_time
