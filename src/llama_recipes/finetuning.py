@@ -5,6 +5,7 @@ import os
 from pkg_resources import packaging
 from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Type, Union
 
+import intel_extension_for_pytorch as ipex
 import fire
 import random
 import torch
@@ -46,8 +47,24 @@ from llama_recipes.utils.train_utils import (
 	get_policies
 )
 
-from accelerate.utils import is_xpu_available
-import intel_extension_for_pytorch as ipex
+from torch.autograd.profiler import record_function
+fa_records: Dict[str, record_function] = {}
+
+def hook_fn_backward(name):
+    def hook(module, inp_grad, out_grad):
+        fa_records[name].__exit__(None, None, None)
+        return
+ 
+    return hook
+
+def hook_fn_pre_backward(name):
+    def hook(module, grad_output):
+        record = record_function(name)
+        record.__enter__()
+        fa_records[name] = record
+    
+    return hook
+
 
 def main(**kwargs):
 	# Update the configuration for the training and sharding process
@@ -186,10 +203,10 @@ def main(**kwargs):
 			cpu_offload=CPUOffload(offload_params=True) if fsdp_config.fsdp_cpu_offload else None,
 			mixed_precision=mixed_precision_policy if not fsdp_config.pure_bf16 else None,
 			sharding_strategy=fsdp_config.sharding_strategy,
-			device_id=torch.device(f"xpu:{local_rank}") if is_xpu_available() else torch.cuda.current_device(),
+            		device_id=torch.device(f"xpu:{local_rank}"),
 			limit_all_gathers=True,
 			sync_module_states=train_config.low_cpu_fsdp,
-			param_init_fn=lambda module: module.to_empty(device=torch.device(f"xpu:{local_rank}") if is_xpu_available() else torch.device("cuda"), recurse=False)
+            		param_init_fn=lambda module: module.to_empty(device=torch.device(f"xpu:{local_rank}"), recurse=False)
 			if train_config.low_cpu_fsdp and rank != 0 else None,
 		)
 		if fsdp_config.fsdp_activation_checkpointing:
