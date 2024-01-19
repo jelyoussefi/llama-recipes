@@ -153,7 +153,7 @@ def main(**kwargs):
 		"""
 		print("using flash atten code pass")
 		from transformers.models.llama.modeling_llama import LlamaAttention
-		from flash_att.llama_attention_monkeypatch import get_llama_attention_patch_fn
+		from llama_recipes.utils.llama_attention_monkeypatch import get_llama_attention_patch_fn
 
 		LlamaAttention.forward = get_llama_attention_patch_fn("ipex")
 		model.config.use_cache = False
