@@ -66,9 +66,8 @@ def main(**kwargs):
 	torch.manual_seed(train_config.seed)
 	random.seed(train_config.seed)
 
-	if is_xpu_available():
-		os.environ['CCL_LOCAL_RANK'] = str(os.environ.get('LOCAL_RANK', 2))
-		os.environ['CCL_LOCAL_SIZE'] = str(os.environ.get('WORLD_SIZE',0))
+	os.environ['CCL_LOCAL_RANK'] = str(os.environ.get('LOCAL_RANK', 2))
+	os.environ['CCL_LOCAL_SIZE'] = str(os.environ.get('WORLD_SIZE',0))
 
 	if train_config.enable_fsdp:
 		setup()
