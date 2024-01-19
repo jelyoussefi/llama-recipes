@@ -55,9 +55,12 @@ def main(**kwargs):
 	update_config((train_config, fsdp_config), **kwargs)
 
 	print("-------------------------------------------------------")
-	print("\tDevice : ", "xpu" if is_xpu_available() else "cuda")
-	print("\tFSDP   : ", train_config.enable_fsdp)
-	print("\tRank   : ", os.environ["RANK"])
+	print("\tDevice 	  : ", "xpu" if is_xpu_available() else "cuda")
+	print("\tFSDP   	  : ", train_config.enable_fsdp)
+	print("\tRank   	  : ", os.environ["RANK"])
+	print("\\tModel   	  : ", train_config.model_name)
+	print("\tBatch size   : ", train_config.batch_size_training)
+	print("\tQuantization : ", train_config.quantization)
 	print("-------------------------------------------------------")
 
 	# Set the seeds for reproducibility
