@@ -49,33 +49,16 @@ from llama_recipes.utils.train_utils import (
 
 from accelerate.utils import is_xpu_available
 
-from torch.autograd.profiler import record_function
-fa_records: Dict[str, record_function] = {}
-
-def hook_fn_backward(name):
-	def hook(module, inp_grad, out_grad):
-		fa_records[name].__exit__(None, None, None)
-		return
- 
-	return hook
-
-def hook_fn_pre_backward(name):
-	def hook(module, grad_output):
-		record = record_function(name)
-		record.__enter__()
-		fa_records[name] = record
-	
-	return hook
-
-
 def main(**kwargs):
 	# Update the configuration for the training and sharding process
 	train_config, fsdp_config = TRAIN_CONFIG(), FSDP_CONFIG()
 	update_config((train_config, fsdp_config), **kwargs)
 
-	print("-----------------------------------------")
+	print("-------------------------------------------------------")
 	print("\tDevice : ", "xpu" if is_xpu_available() else "cuda")
-	print("-----------------------------------------")
+	print("\tFSDP   : ", train_config.enable_fsdp)
+	print("\tRank   : ", os.environ["RANK"])
+	print("-------------------------------------------------------")
 
 	# Set the seeds for reproducibility
 	if is_xpu_available():
