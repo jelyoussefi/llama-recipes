@@ -71,8 +71,16 @@ def main(**kwargs):
     train_config, fsdp_config = TRAIN_CONFIG(), FSDP_CONFIG()
     update_config((train_config, fsdp_config), **kwargs)
 
+	print("-----------------------------------------")
+	print("\tDevice : ", "xpu" if is_xpu_available() else "cuda")
+	print("-----------------------------------------")
+
     # Set the seeds for reproducibility
-    torch.xpu.manual_seed(train_config.seed)
+	if is_xpu_available():
+    	torch.xpu.manual_seed(train_config.seed)
+	else:
+		torch.cuda.manual_seed(train_config.seed)
+    
     torch.manual_seed(train_config.seed)
     random.seed(train_config.seed)
 
