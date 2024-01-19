@@ -59,10 +59,7 @@ def main(**kwargs):
 	print("-----------------------------------------")
 
 	# Set the seeds for reproducibility
-	if is_xpu_available():
-		torch.xpu.manual_seed(train_config.seed)
-	else:
-		torch.cuda.manual_seed(train_config.seed)
+	torch.xpu.manual_seed(train_config.seed)
 	torch.manual_seed(train_config.seed)
 	random.seed(train_config.seed)
 
