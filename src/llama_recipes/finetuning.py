@@ -18,7 +18,7 @@ from torch.distributed.fsdp.fully_sharded_data_parallel import CPUOffload
 from torch.optim.lr_scheduler import StepLR
 from transformers import (
 	LlamaForCausalLM,
-	CodeLlamaTokenizer,
+	LlamaTokenizer,
 	LlamaConfig,
 )
 from transformers.models.llama.modeling_llama import LlamaDecoderLayer
@@ -50,42 +50,19 @@ from llama_recipes.utils.train_utils import (
 from torch.autograd.profiler import record_function
 fa_records: Dict[str, record_function] = {}
 
-def hook_fn_backward(name):
-    def hook(module, inp_grad, out_grad):
-        fa_records[name].__exit__(None, None, None)
-        return
- 
-    return hook
-
-def hook_fn_pre_backward(name):
-    def hook(module, grad_output):
-        record = record_function(name)
-        record.__enter__()
-        fa_records[name] = record
-    
-    return hook
-
 
 def main(**kwargs):
 	# Update the configuration for the training and sharding process
 	train_config, fsdp_config = TRAIN_CONFIG(), FSDP_CONFIG()
 	update_config((train_config, fsdp_config), **kwargs)
 
-	print("-----------------------------------------")
-	print("\tDevice : ", "xpu" if is_xpu_available() else "cuda")
-	print("-----------------------------------------")
-
 	# Set the seeds for reproducibility
-	if is_xpu_available():
-		torch.xpu.manual_seed(train_config.seed)
-	else:
-		torch.cuda.manual_seed(train_config.seed)
+	torch.xpu.manual_seed(train_config.seed)
 	torch.manual_seed(train_config.seed)
 	random.seed(train_config.seed)
 
-	if is_xpu_available():
-		os.environ['CCL_LOCAL_RANK'] = str(os.environ.get('LOCAL_RANK', 2))
-		os.environ['CCL_LOCAL_SIZE'] = str(os.environ.get('WORLD_SIZE', 0))
+	os.environ['CCL_LOCAL_RANK'] = str(os.environ.get('LOCAL_RANK', 2))
+	os.environ['CCL_LOCAL_SIZE'] = str(os.environ.get('WORLD_SIZE',0))
 
 	if train_config.enable_fsdp:
 		setup()
@@ -95,10 +72,7 @@ def main(**kwargs):
 		world_size = int(os.environ["WORLD_SIZE"])
 
 	if torch.distributed.is_initialized():
-		if is_xpu_available():
-			torch.xpu.set_device(local_rank)
-		else:
-			torch.cuda.set_device(local_rank)
+		torch.xpu.set_device(local_rank)
 		clear_gpu_cache(local_rank)
 		setup_environ_flags(rank)
 
@@ -113,9 +87,9 @@ def main(**kwargs):
 		"""
 		v = packaging.version.parse(torch.__version__)
 		verify_latest_nightly = v.is_devrelease and v.dev >= 20230701
-		if not verify_latest_nightly:
-			raise Exception("latest pytorch nightly build is required to run with low_cpu_fsdp config, "
-							"please install latest nightly.")
+		# if not verify_latest_nightly:
+		#     raise Exception("latest pytorch nightly build is required to run with low_cpu_fsdp config, "
+		#                     "please install latest nightly.")
 		if rank == 0:
 			model = LlamaForCausalLM.from_pretrained(
 				train_config.model_name,
@@ -155,7 +129,7 @@ def main(**kwargs):
 			model = BetterTransformer.transform(model)
 		except ImportError:
 			print("Module 'optimum' not found. Please install 'optimum' it before proceeding.")
-
+	print(train_config.use_customized_flash_atten)
 	if train_config.enable_fsdp and train_config.use_customized_flash_atten:
 		"""
 		setting "use_customized_flash_atten" will enable Flash Attention bashed on XeTLA 
@@ -170,7 +144,7 @@ def main(**kwargs):
 		model.config.use_cache = False
 
 	# Load the tokenizer and add special tokens
-	tokenizer = CodeLlamaTokenizer.from_pretrained(train_config.model_name)
+	tokenizer = LlamaTokenizer.from_pretrained(train_config.model_name)
 	tokenizer.pad_token_id = tokenizer.eos_token_id
 
 	print_model_size(model, train_config, rank if train_config.enable_fsdp else 0)
@@ -187,7 +161,7 @@ def main(**kwargs):
 		peft_config = generate_peft_config(train_config, kwargs)
 		model = get_peft_model(model, peft_config)
 		model.print_trainable_parameters()
-
+	
 	#setting up FSDP if enable_fsdp is enabled
 	if train_config.enable_fsdp:
 		if not train_config.use_peft and train_config.freeze_layers:
@@ -203,19 +177,16 @@ def main(**kwargs):
 			cpu_offload=CPUOffload(offload_params=True) if fsdp_config.fsdp_cpu_offload else None,
 			mixed_precision=mixed_precision_policy if not fsdp_config.pure_bf16 else None,
 			sharding_strategy=fsdp_config.sharding_strategy,
-            		device_id=torch.device(f"xpu:{local_rank}"),
+			device_id=torch.device(f"xpu:{local_rank}"),
 			limit_all_gathers=True,
 			sync_module_states=train_config.low_cpu_fsdp,
-            		param_init_fn=lambda module: module.to_empty(device=torch.device(f"xpu:{local_rank}"), recurse=False)
+			param_init_fn=lambda module: module.to_empty(device=torch.device(f"xpu:{local_rank}"), recurse=False)
 			if train_config.low_cpu_fsdp and rank != 0 else None,
 		)
 		if fsdp_config.fsdp_activation_checkpointing:
 			apply_fsdp_checkpointing(model)
 	elif not train_config.quantization and not train_config.enable_fsdp:
-		if is_xpu_available():
-			model.to("xpu")
-		else:
-			model.to("cuda")
+		model.to("xpu")
 
 	dataset_config = generate_dataset_config(train_config, kwargs)
 
