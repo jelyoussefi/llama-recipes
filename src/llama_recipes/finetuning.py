@@ -139,7 +139,7 @@ def main(**kwargs):
 		except ImportError:
 			print("Module 'optimum' not found. Please install 'optimum' it before proceeding.")
 
- 	if train_config.enable_fsdp and train_config.use_customized_flash_atten:
+	if train_config.enable_fsdp and train_config.use_customized_flash_atten:
 		"""
 		setting "use_customized_flash_atten" will enable Flash Attention bashed on XeTLA 
 		backends. It should be run with an IPEX which has FLash Attention enabled. This
