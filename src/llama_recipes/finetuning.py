@@ -47,6 +47,8 @@ from llama_recipes.utils.train_utils import (
 	get_policies
 )
 
+from accelerate.utils import is_xpu_available
+
 from torch.autograd.profiler import record_function
 fa_records: Dict[str, record_function] = {}
 
