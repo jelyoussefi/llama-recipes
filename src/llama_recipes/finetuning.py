@@ -98,7 +98,10 @@ def main(**kwargs):
 		world_size = int(os.environ["WORLD_SIZE"])
 
 	if torch.distributed.is_initialized():
-		torch.xpu.set_device(local_rank)
+		if is_xpu_available():
+			torch.xpu.set_device(local_rank)
+		else:
+			torch.cuda.set_device(local_rank)
 		clear_gpu_cache(local_rank)
 		setup_environ_flags(rank)
 
