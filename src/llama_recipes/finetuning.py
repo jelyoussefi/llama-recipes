@@ -132,7 +132,6 @@ def main(**kwargs):
 			config = llama_config,
 			load_in_8bit=True if train_config.quantization else None,
 			device_map="auto" if train_config.quantization else None,
-            use_cache=use_cache,
 		)
 	if train_config.enable_fsdp and train_config.use_fast_kernels:
 		"""
