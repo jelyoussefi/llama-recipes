@@ -5,7 +5,6 @@ import os
 from pkg_resources import packaging
 from typing import TYPE_CHECKING, Any, Callable, ContextManager, Dict, List, Optional, Type, Union
 
-import intel_extension_for_pytorch as ipex
 import fire
 import random
 import torch
@@ -48,6 +47,8 @@ from llama_recipes.utils.train_utils import (
 )
 
 from accelerate.utils import is_xpu_available
+if is_xpu_available():
+	import intel_extension_for_pytorch as ipex
 
 def main(**kwargs):
 	# Update the configuration for the training and sharding process
@@ -131,7 +132,7 @@ def main(**kwargs):
 			config = llama_config,
 			load_in_8bit=True if train_config.quantization else None,
 			device_map="auto" if train_config.quantization else None,
-			token=True,
+            use_cache=use_cache,
 		)
 	if train_config.enable_fsdp and train_config.use_fast_kernels:
 		"""

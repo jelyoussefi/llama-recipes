@@ -60,6 +60,7 @@ def plot_metrics(file_path):
     plt.close()
 
     plot_metrics_by_step(data, 'perplexity', 'Step', 'Loss', ['g', 'm'])
+    print(os.path.join(directory, f"{filename_prefix}_train_and_validation_perplexity_by_step.png"))
     plt.savefig(os.path.join(directory, f"{filename_prefix}_train_and_validation_perplexity_by_step.png"))
     plt.close()
     

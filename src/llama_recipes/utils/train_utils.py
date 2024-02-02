@@ -12,7 +12,6 @@ from datetime import datetime
 
 import torch
 import torch.cuda.nccl as nccl
-import oneccl_bindings_for_pytorch
 import torch.distributed as dist
 from torch.distributed.fsdp import StateDictType
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
@@ -25,6 +24,9 @@ from llama_recipes.model_checkpointing import save_model_checkpoint, save_model_
 from llama_recipes.policies import fpSixteen,bfSixteen, get_llama_wrapper
 from llama_recipes.utils.memory_utils import MemoryTrace
 from accelerate.utils import is_xpu_available, is_ccl_available
+if is_xpu_available():
+	import oneccl_bindings_for_pytorch
+
 
 def set_tokenizer_params(tokenizer: LlamaTokenizer):
 	tokenizer.pad_token_id = 0
