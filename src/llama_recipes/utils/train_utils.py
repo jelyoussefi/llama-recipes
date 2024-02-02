@@ -23,6 +23,9 @@ import json
 from llama_recipes.model_checkpointing import save_model_checkpoint, save_model_and_optimizer_sharded, save_optimizer_checkpoint
 from llama_recipes.policies import fpSixteen,bfSixteen, get_llama_wrapper
 from llama_recipes.utils.memory_utils import MemoryTrace
+
+from torch.utils.tensorboard import SummaryWriter
+
 from accelerate.utils import is_xpu_available, is_ccl_available
 if is_xpu_available():
 	import oneccl_bindings_for_pytorch
@@ -87,6 +90,8 @@ def train(model, train_dataloader,eval_dataloader, tokenizer, optimizer, lr_sche
 	checkpoint_times = []
 	results = {}
 	best_val_loss = float("inf")
+	writer = SummaryWriter()
+	
 	for epoch in range(train_config.num_epochs):
 		epoch_start_time = time.perf_counter()
 		with MemoryTrace() as memtrace:  # track the memory usage
@@ -253,6 +258,11 @@ def train(model, train_dataloader,eval_dataloader, tokenizer, optimizer, lr_sche
 					print(f"best eval loss on epoch {epoch+1} is {best_val_loss}")
 			val_loss.append(float(best_val_loss))
 			val_prep.append(float(eval_ppl))
+
+			writer.add_scalars('Loss', {'train': train_epoch_loss}, epoch)
+			writer.add_scalars('Accuracy', {'valid': eval_epoch_loss}, epoch)
+			writer.flush()
+
 		if train_config.enable_fsdp:
 			if rank==0:
 				print(f"Epoch {epoch+1}: train_perplexity={train_perplexity:.4f}, train_epoch_loss={train_epoch_loss:.4f}, epoch time {epoch_end_time}s")
@@ -284,6 +294,8 @@ def train(model, train_dataloader,eval_dataloader, tokenizer, optimizer, lr_sche
 	#saving the training params including fsdp setting for reference.
 	if train_config.enable_fsdp and not train_config.use_peft:
 		save_train_params(train_config, fsdp_config, rank)
+
+	writer.close()
 
 	return results
 
